@@ -1,0 +1,6 @@
+Assumptions:
+- Horizontal well x-axis for the Gamma Ray plot should use MD.
+- TVT plot uses horizontal well TVT if available; otherwise the feature should be disabled with a warning.
+- Geology boundaries are derived from changes in the Typewell Geology column.
+- If a horizontal well has no formation columns, the well path chart should still render the blue trajectory line.
+- Dropdowns should allow independent selection of well and typewell.

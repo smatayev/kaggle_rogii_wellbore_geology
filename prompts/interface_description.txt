@@ -1,0 +1,443 @@
+You are a senior full-stack engineer. Build a complete local web application from scratch for visualizing horizontal well trajectories and geological cross-sections using CSV files stored in a local data/ folder.
+
+Your goal is to generate a clean, modular, maintainable implementation that is easy to run locally and easy to extend later.
+
+## High-level objective
+
+Create an engineering-style dashboard application that allows the user to:
+
+1. Select a horizontal well from a dropdown
+2. Select a typewell from a dropdown
+3. View multiple synchronized plots showing:
+   - Gamma Ray along the horizontal well
+   - Well path projection on a vertical plane
+   - TVT-based comparison between horizontal well and typewell
+   - Zoomed TVT comparison for the last 200 ft
+
+The UI should resemble a technical interpretation dashboard, similar to a geology/well placement visualization tool.
+
+---
+
+## Recommended technology stack
+
+Use the following stack unless there is a strong reason otherwise:
+
+- Python
+- Streamlit for the UI
+- Plotly for interactive charts
+- pandas for CSV loading and preprocessing
+- pathlib / os for file discovery
+- modular project structure with helper modules
+
+Do NOT use Jupyter Notebook as the primary deliverable.
+Do NOT make this a one-file prototype unless absolutely necessary.
+Generate a proper project structure.
+
+---
+
+## Data location and naming conventions
+
+All CSV files are stored under:
+
+data/
+
+There are two file patterns:
+
+1. Horizontal well files:
+   {WELLNAME}__horizontal_well.csv
+
+2. Typewell files:
+   {WELLNAME}__typewell.csv
+
+Important:
+- The app must scan the data/ folder automatically on startup
+- The app must populate dropdown options based on available files
+- The well dropdown and typewell dropdown should be independent
+- Do not assume only matched pairs can be selected unless implemented as an optional enhancement
+
+---
+
+## Dataset description
+
+The data represents horizontal well trajectories and vertical reference logs used for geological prediction.
+
+Each well is identified by a unique 8-character hash, for example:
+015fe0d2
+
+### Horizontal well file columns
+
+Required columns:
+- MD: Measured Depth (ft)
+- X: Easting (ft)
+- Y: Northing (ft)
+- Z: True Vertical Depth (ft)
+- GR: Gamma Ray (API)
+
+Optional / expected columns:
+- ANCC
+- ASTNU
+- ASTNL
+- EGFDU
+- EGFDL
+- BUDA
+- TVT
+- TVT_input
+
+Meaning:
+- Formation columns represent predicted depth of geological formations
+- TVT is the interpreted geological position along the lateral
+- TVT_input is a copy of TVT, but contains NaN values in the evaluation/prediction zone
+
+### Typewell file columns
+
+Required columns:
+- TVT
+- GR
+- Geology
+
+Meaning:
+- TVT is the vertical depth index
+- GR is the vertical gamma ray signature
+- Geology is a categorical formation label such as EGFDU, EGFDL, BUDA, etc.
+
+---
+
+## UI requirements
+
+### Header / top controls
+
+At the top of the page, display:
+- App title
+- Well dropdown
+- Typewell dropdown
+- Information text showing:
+
+Well: <selected well> | Typewell: <selected typewell> | Azimuth = <value>°
+
+Azimuth must be computed from the selected horizontal well using X and Y coordinates.
+
+---
+
+## Visualization layout
+
+Use a dashboard layout close to this:
+
+- Left side: two large charts stacked vertically
+- Right side: two narrower vertical charts side by side
+
+Charts required:
+
+1. Top-left: Gamma Ray Log
+2. Bottom-left: Well Path Projection on Vertical Plane
+3. Right-middle: TVT plot
+4. Far-right: TVT plot (last 200 FT)
+
+The layout should be readable on a wide desktop screen.
+
+---
+
+## Chart details
+
+### 1) Gamma Ray Log
+
+Use the selected horizontal well.
+
+- Plot GR vs MD
+- Black line for GR
+- Green filled area under the line
+- Title: Gamma Ray Log
+- X-axis label: MD (FT)
+- Y-axis label: GR
+
+If GR or MD is missing, show a clear warning message instead of crashing.
+
+---
+
+### 2) Well Path Projection on Vertical Plane
+
+Use the selected horizontal well.
+
+This chart should show:
+- Projected well path
+- Geological surface lines if available
+- Prediction start marker if derivable
+
+#### Required logic
+
+Compute azimuth:
+- Use the first valid (X, Y) point and the last valid (X, Y) point
+- Compute azimuth in degrees
+
+Compute projected horizontal distance:
+- Project the trajectory onto a vertical plane aligned with the azimuth
+- X-axis = cumulative projected distance along azimuth direction
+- Y-axis = Z depth
+- Depth should visually increase downward
+
+Plot:
+- Projected well path as thick blue line
+- If TVT_input contains NaN values:
+  - find the first row where TVT_input is NaN
+  - plot a large red marker at that location
+  - label: Prediction start (MD=<value> ft)
+
+If these formation columns exist, overlay them as separate colored lines:
+- ANCC
+- ASTNU
+- ASTNL
+- EGFDU
+- EGFDL
+- BUDA
+
+Use consistent colors such as:
+- ANCC = red
+- ASTNU = orange
+- ASTNL = purple
+- EGFDU = green
+- EGFDL = cyan
+- BUDA = magenta
+
+Title format:
+Well Path Projection on Vertical Plane (Azimuth = <value>°)
+
+Axis labels:
+- X-axis: Horizontal Distance Along Azimuth
+- Y-axis: Depth (Z, FT)
+
+---
+
+### 3) TVT plot
+
+This chart compares horizontal-well GR and typewell GR in TVT space.
+
+Requirements:
+- Plot horizontal well GR vs horizontal well TVT in black
+- Plot typewell GR vs typewell TVT in red
+- X-axis label: GR
+- Y-axis label: TVT (FT)
+- Depth should increase downward
+- Set GR display range to 0–200 by default if practical
+- Show a small annotation or label near the top: GR range: 0 - 200
+
+Geology boundary markers:
+- Derive boundary depths from changes in the Typewell Geology column
+- Whenever the Geology value changes between adjacent rows, record the TVT
+- Draw horizontal dashed lines at those TVT values
+- If the formation name matches one of:
+  ANCC, ASTNU, ASTNL, EGFDU, EGFDL, BUDA
+  use the same color as in the well-path chart
+- Otherwise use a neutral dashed gray line
+
+Title:
+TVT plot
+
+Important:
+- If the selected horizontal well does not have TVT, display a warning and skip this chart gracefully
+- If the typewell lacks Geology, render the plot without boundary markers
+
+---
+
+### 4) TVT plot (last 200 FT)
+
+This chart is the same as TVT plot, but zoomed into the last 200 ft of the TVT range.
+
+Requirements:
+- Same two overlaid curves
+- Same boundary markers
+- Default y-range should be:
+  [max TVT - 200, max TVT]
+- Title:
+  TVT plot (last 200 FT)
+
+If max TVT is unavailable, show a meaningful warning.
+
+---
+
+## Functional requirements
+
+### On app startup
+- Scan data/ folder
+- Detect available horizontal well files
+- Detect available typewell files
+- Populate dropdowns
+- Auto-select the first available item in each dropdown if present
+- Render all charts immediately
+
+### On selection change
+When the user changes:
+- selected well
+- selected typewell
+
+The app must:
+1. reload the selected CSV files
+2. validate columns
+3. compute azimuth
+4. compute projection
+5. compute prediction start marker
+6. compute geology boundary depths
+7. rerender all charts
+
+---
+
+## Error handling and robustness
+
+The app must handle the following gracefully:
+
+- data/ folder missing
+- no matching CSV files found
+- malformed filenames
+- empty CSVs
+- missing required columns
+- non-numeric values in numeric columns
+- no valid X/Y points
+- missing TVT in horizontal well
+- missing Geology in typewell
+- all-NaN columns
+- formation columns missing entirely
+
+Never crash the entire app because of one bad file.
+Show clear Streamlit warnings/errors in the UI.
+
+Examples:
+- Missing required column: GR
+- No horizontal well files found in data/
+- Selected well has no valid X/Y coordinates
+- TVT plot unavailable because horizontal well has no TVT column
+
+---
+
+## Code quality requirements
+
+Write clean, production-style code.
+
+Requirements:
+- Use modular structure
+- Separate UI from data loading and plotting logic
+- Add comments where assumptions are important
+- Use type hints where useful
+- Keep functions small and readable
+- Avoid duplicated logic
+- Name functions clearly
+- Make the code easy to extend later
+
+---
+
+## Required project structure
+
+Generate a full project scaffold similar to this:
+
+project-root/
+│
+├── app.py
+├── requirements.txt
+├── README.md
+├── data/
+│   └── (csv files go here)
+├── src/
+│   ├── __init__.py
+│   ├── data_loader.py
+│   ├── validators.py
+│   ├── calculations.py
+│   ├── plotting.py
+│   └── config.py
+
+You may improve this structure if needed, but keep it simple and practical.
+
+---
+
+## Expected module responsibilities
+
+### app.py
+- Streamlit entry point
+- Layout creation
+- Dropdown handling
+- Coordination of data loading and plotting
+- User-facing messages
+
+### src/data_loader.py
+- scan data/ for valid files
+- parse filenames
+- return dropdown options
+- load CSVs into pandas DataFrames
+
+### src/validators.py
+- validate required columns
+- validate non-empty data
+- validate numeric columns where needed
+
+### src/calculations.py
+- compute azimuth from X/Y
+- compute projected horizontal distance
+- find prediction start from TVT_input
+- extract geology boundaries from typewell Geology changes
+
+### src/plotting.py
+- build Plotly figures for:
+  - gamma ray plot
+  - well path projection plot
+  - TVT plot
+  - zoomed TVT plot
+
+### src/config.py
+- color maps
+- column name constants
+- chart defaults
+- optional app-level settings
+
+---
+
+## Implementation details and assumptions
+
+Use these assumptions unless better justified in code comments:
+
+1. Gamma Ray chart x-axis should use MD.
+2. Azimuth can be computed from first valid and last valid trajectory points.
+3. Projected horizontal distance can be derived by projecting XY coordinates onto the azimuth unit vector.
+4. For the well path chart, use Z depth values directly on the y-axis.
+5. Prediction start is the first row where TVT_input becomes NaN.
+6. Geological boundaries in TVT plots come from transitions in typewell Geology.
+7. The “last 200 FT” TVT chart should default to the deepest 200 ft interval.
+8. If any optional formation columns are missing, still render the chart with available data.
+9. If a selected file is invalid, show a warning in the UI instead of raising an unhandled exception.
+
+---
+
+## Deliverables
+
+Generate all of the following:
+
+1. Full project folder structure
+2. Code for every required file
+3. requirements.txt
+4. README.md with:
+   - setup instructions
+   - installation steps
+   - how to run locally
+   - data folder expectations
+   - assumptions and limitations
+
+---
+
+## Running instructions
+
+The app should run locally with something like:
+
+pip install -r requirements.txt
+streamlit run app.py
+
+Make sure your generated code is consistent with this flow.
+
+---
+
+## Output format
+
+Please output the solution in this order:
+
+1. Project structure
+2. Full contents of each file
+3. Short explanation of architecture
+4. Run instructions
+
+Do not skip files.
+Do not leave TODO placeholders unless absolutely necessary.
+If you make assumptions, state them clearly in comments and README.

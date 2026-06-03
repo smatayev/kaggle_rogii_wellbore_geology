@@ -1,0 +1,25 @@
+# Dataset Description
+
+Data comprises horizontal well trajectories and vertical reference logs (Typewells) used for geological prediction.
+
+Your goal is to predict the TVT (True Vertical Thickness) for the evaluation zone of each horizontal well.
+
+The data is organized into `data/` folder, where each well is identified by a unique 8-character hash (for example, `015fe0d2`).
+
+## File and Field Information
+
+- `train/`: Contains the training data. Each well has three associated files:
+	- `{WELLNAME}__horizontal_well.csv`: Trajectory, geological surfaces, and log data.
+		- `WELLNAME`: Unique identifier for the well.
+		- `MD` (Measured Depth, ft): The total length of the wellbore from the surface.
+		- `X` (Easting, ft): Spatial coordinate in the horizontal plane.
+		- `Y` (Northing, ft): Spatial coordinate in the horizontal plane.
+		- `Z` (True Vertical Depth, ft): The vertical distance below sea level.
+		- `ANCC`, `ASTNU`, `ASTNL`, `EGFDU`, `EGFDL`, `BUDA`: Predicted depth of various geological formations (training only).
+		- `TVT` (True Vertical Thickness, ft): The manually interpreted geological position for each 1 ft of the lateral well. This is the target variable (training only).
+		- `GR` (Gamma Ray, API): Log measuring natural radioactivity of the rock.
+		- `TVT_input` (Input Target, ft): A copy of `TVT` provided as a feature. This column contains `NaN` values for the evaluation zone.
+	- `{WELLNAME}__typewell.csv`: Vertical reference log for geological correlation.
+		- `TVT` (Vertical Depth Index, ft): Primary depth reference for the vertical log. Corresponds to `TVT` (geological position) of the associated horizontal well.
+		- `GR` (Gamma Ray, API): The vertical Gamma Ray signature used for correlation.
+		- `Geology` (Formation Label): Categorical label indicating the geological unit (for example, `EGFDL`, `BUDA`).
